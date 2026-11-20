@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-electron/
+release/
+*.log
+.DS_Store
+# The licence signing key must never be committed or shipped.
+tools/license/private-key.pem
+tools/license/issued-licenses.csv
+.test-build/
