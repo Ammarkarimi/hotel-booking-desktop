@@ -8,7 +8,8 @@ import { CHARGE_CATEGORIES, ID_TYPES, PAYMENT_METHODS, SOURCES, label, money, mo
 import { addDays, formatDate, nightsBetween, todayKey } from "../../../shared/dates";
 import type { Folio } from "../../../shared/pricing";
 import type { FullBooking, Room } from "../../../shared/types";
-import { VEHICLE_LABELS, VEHICLE_TYPES } from "../../../shared/pathik";
+import { VEHICLE_LABELS, VEHICLE_TYPES, type PathikRecord } from "../../../shared/pathik";
+import { PathikDetailsDialog } from "../PathikDialog";
 
 type Done = (b: FullBooking) => void;
 
@@ -237,6 +238,14 @@ export function CheckInDialog({ open, onClose, booking, onDone }: { open: boolea
   const [ack, setAck] = useState(false);
   const { busy, error, run } = useAction((b) => (onDone(b), toast(`${b.guestName} checked in to room ${b.room.roomNumber}`)), onClose);
   useEffect(() => setAck(false), [open]);
+  // Pathik on (always in Gujarat): every detail Pathik asks for is needed before check-in.
+  const [pathik, setPathik] = useState<PathikRecord | null>(null);
+  const [editPathik, setEditPathik] = useState(false);
+  const loadPathik = () => void api<PathikRecord>("pathik.record", { bookingId: booking.id }).then(setPathik).catch(() => setPathik(null));
+  useEffect(() => {
+    if (open && settings?.pathik) loadPathik();
+  }, [open, settings?.pathik, booking.id]);
+  const pathikMissing = settings?.pathik ? pathik?.missing ?? [] : [];
   const early = booking.checkInDate > todayKey();
   const needAck = settings?.idCheckRequired && missing > 0;
   const go = async () => {
@@ -256,7 +265,7 @@ export function CheckInDialog({ open, onClose, booking, onDone }: { open: boolea
       footer={
         <>
           <Button onClick={onClose}>Not yet</Button>
-          <Button variant="success" loading={busy} disabled={!!needAck && !ack} onClick={go}>
+          <Button variant="success" loading={busy} disabled={(!!needAck && !ack) || pathikMissing.length > 0} onClick={go}>
             Check in to room {booking.room.roomNumber}
           </Button>
         </>
@@ -285,13 +294,25 @@ export function CheckInDialog({ open, onClose, booking, onDone }: { open: boolea
         {missing > 0 && (
           <Note tone={settings?.idCheckRequired ? "red" : "amber"} icon={<AlertTriangle />}>
             {missing} of {booking.adults} adult{booking.adults > 1 ? "s" : ""} do not have their ID ticked yet. Please look at every adult's original ID before check-in.
-            {settings?.idCheckRequired && (
+            {settings?.idCheckRequired && !settings?.pathik && (
               <label className="mt-2 flex items-center gap-2 font-medium">
                 <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} /> Check in anyway (the IDs will be ticked later)
               </label>
             )}
           </Note>
         )}
+        {pathikMissing.length > 0 && (
+          <Note tone="red" icon={<AlertTriangle />}>
+            <b>Pathik needs these details before check-in:</b> {pathikMissing.join(", ")}.
+            <div className="mt-2">
+              <Button size="sm" variant="primary" onClick={() => setEditPathik(true)}>
+                Add the details
+              </Button>
+            </div>
+            {pathikMissing.some((m) => m.startsWith("ID proof")) && <p className="mt-1 text-[12px]">Tick each adult's ID under “ID check” on the booking.</p>}
+          </Note>
+        )}
+        <PathikDetailsDialog open={editPathik} onClose={() => setEditPathik(false)} bookingId={booking.id} onSaved={loadPathik} />
         <ErrorNote>{error.startsWith("ID_MISSING") ? "Please tick the IDs first, or choose “Check in anyway”." : error}</ErrorNote>
       </div>
     </Modal>

@@ -9,7 +9,13 @@ import { bool, fail, log, numberIn, opt, requirePerm, requireStaff, session, str
 import { getSettings, pricingRules, taxRules } from "./settings";
 import { guestFromRow, upsertGuest, type GuestInput } from "./guests";
 import { roomFromRow } from "./rooms";
-import { VEHICLE_TYPES } from "../../shared/pathik";
+import { VEHICLE_TYPES, pathikRecord } from "../../shared/pathik";
+
+/** With Pathik on (always on in Gujarat) every detail Pathik asks for is needed before check-in. */
+export function pathikMissing(b: FullBooking) {
+  const s = getSettings();
+  return s.pathik ? pathikRecord(b, s).missing : [];
+}
 
 export const ACTIVE = ["reserved", "checked_in"];
 
@@ -273,7 +279,11 @@ export function createBooking(input: CreateInput) {
     });
     if (input.advance && Number(input.advance.amount) > 0) addPaymentRow(id, paymentFields(input.advance), "advance");
     log("New booking", `#${number} ${guest.firstName} ${guest.lastName}, room ${room.roomNumber}, ${checkIn} to ${checkOut}`, id);
-    if (input.walkIn) log("Checked in", `#${number} room ${room.roomNumber} (walk-in)`, id);
+    if (input.walkIn) {
+      // Without the details Pathik needs, the walk-in stays booked and check-in asks for them.
+      if (pathikMissing(loadBooking(id)).length) update("bookings", id, { status: "reserved", actualCheckIn: null });
+      else log("Checked in", `#${number} room ${room.roomNumber} (walk-in)`, id);
+    }
     return loadBooking(id);
   });
 }
@@ -454,6 +464,8 @@ export const bookingsApi = {
       if (s.idCheckRequired && b.idChecks.length < adults && !confirmIdsMissing) {
         fail(`ID_MISSING:${adults - b.idChecks.length}`);
       }
+      const miss = pathikMissing(b);
+      if (miss.length) fail(`Pathik needs these details before check-in: ${miss.join(", ")}.`);
       update("bookings", id, { status: "checked_in", actualCheckIn: now(), checkInDate: checkIn, checkOutDate: checkOut, roomId: room.id, updatedAt: now() });
       log("Checked in", `#${b.number} ${b.guestName}, room ${room.roomNumber}${b.idChecks.length < adults ? ` (IDs checked: ${b.idChecks.length} of ${adults})` : ""}`, id);
       return loadBooking(id);

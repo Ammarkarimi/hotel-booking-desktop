@@ -10,6 +10,7 @@ import { DEFAULT_MESSAGES, MESSAGE_FIELDS, MESSAGE_KINDS, MESSAGE_TITLES, fillMe
 import { INDIAN_STATES, isValidGstin } from "../../shared/format";
 import { clockLabel, formatDateTime } from "../../shared/dates";
 import type { Settings } from "../../shared/types";
+import { isGujarat } from "../../shared/pathik";
 import type { GstSlab } from "../../shared/pricing";
 
 type Tab = "hotel" | "billing" | "whatsapp" | "desk" | "backup" | "license";
@@ -174,7 +175,8 @@ export function SettingsPage() {
       {tab === "desk" && (
         <Panel title="Pathik (police guest register)" subtitle="Hotels in Gujarat enter every guest in Pathik" className="mt-4">
           <div className="space-y-3">
-            <Toggle checked={v.pathik} onChange={(x) => set("pathik", x)} label="Fill in Pathik from this software" hint="Adds “Fill in Pathik” to bookings and a list of guests not entered yet. Pathik opens in its own window and its Add Guest form is filled in — with every adult in the room. ID numbers and photos are added by hand." />
+            <Toggle checked={v.pathik || isGujarat(v)} disabled={isGujarat(v)} onChange={(x) => set("pathik", x)} label="Fill in Pathik from this software" hint="Adds “Fill in Pathik” to bookings and a list of guests not entered yet. Pathik opens in its own window and its Add Guest form is filled in — with every adult in the room. ID numbers and photos are added by hand." />
+            {isGujarat(v) && <Note tone="blue">Compulsory for hotels in Gujarat: every guest must be entered in Pathik, and check-in needs all the details Pathik asks for.</Note>}
             {v.pathik && (
               <div className="grid grid-cols-3 gap-3">
                 <Field label="Add Guest page address" className="col-span-3" hint="Change only if Pathik moves its Add Guest page">

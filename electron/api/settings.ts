@@ -1,3 +1,4 @@
+import { isGujarat } from "../../shared/pathik";
 // Hotel settings: one value per key, merged over the defaults so new settings appear by themselves.
 import { DEFAULT_GST_SLABS, parseGstSlabs, type PricingRules, type TaxRules } from "../../shared/pricing";
 import { DEFAULT_ROOM_TYPES } from "../../shared/format";
@@ -63,6 +64,7 @@ export function getSettings(): Settings {
     }
   }
   s.gstSlabs = parseGstSlabs(JSON.stringify(s.gstSlabs));
+  if (isGujarat(s)) s.pathik = true;
   cache = s;
   return s;
 }

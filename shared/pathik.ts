@@ -73,6 +73,11 @@ const COUNTRIES: Record<string, string> = {
   indian: "India", american: "United States", british: "United Kingdom", english: "United Kingdom", french: "France", german: "Germany", italian: "Italy", spanish: "Spain", dutch: "Netherlands", canadian: "Canada", australian: "Australia", "new zealander": "New Zealand", nepali: "Nepal", nepalese: "Nepal", bangladeshi: "Bangladesh", "sri lankan": "Sri Lanka", bhutanese: "Bhutan", chinese: "China", japanese: "Japan", korean: "South Korea", russian: "Russia", emirati: "United Arab Emirates", singaporean: "Singapore", malaysian: "Malaysia", thai: "Thailand", israeli: "Israel", irish: "Ireland", swiss: "Switzerland", swedish: "Sweden", "south african": "South Africa",
 };
 
+/** Hotels in Gujarat must enter every guest in Pathik, so there it cannot be switched off. */
+export function isGujarat(s: { state?: string | null; gstin?: string | null }) {
+  return (s.state ?? "").trim().toLowerCase() === "gujarat" || (s.gstin ?? "").trim().startsWith("24");
+}
+
 export function isIndian(nationality: string | null | undefined) {
   const n = (nationality ?? "").trim().toLowerCase();
   return !n || n === "indian" || n === "india";

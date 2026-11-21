@@ -63,6 +63,31 @@ export function Dashboard() {
         </Button>
       </div>
 
+      {settings?.pathik && (pathik.data?.length ?? 0) > 0 && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50">
+          <div className="flex items-center gap-2 border-b border-red-200 px-4 py-2.5">
+            <ShieldCheck className="size-5 text-red-600" />
+            <span className="font-semibold text-red-800">Pathik form not filled for {pathik.data!.length} guest{pathik.data!.length > 1 ? "s" : ""}</span>
+            <span className="text-[12.5px] text-red-700">— enter every guest in the police register</span>
+          </div>
+          <ul className="grid grid-cols-1 divide-y divide-red-100 md:grid-cols-2 md:divide-y-0">
+            {pathik.data!.map((b) => (
+              <li key={b.id} className="flex items-center justify-between gap-2 px-4 py-2 text-[12.5px]">
+                <button className="min-w-0 text-left" onClick={() => navigate(`/bookings/${b.id}`)}>
+                  <span className="block truncate font-medium text-slate-800">{b.guestName}</span>
+                  <span className="text-slate-600">
+                    Room {b.roomNumber} · #{b.number} · {b.status === "checked_out" ? "left" : "staying"}
+                  </span>
+                </button>
+                <Button size="sm" variant="primary" onClick={() => setPathikFor(b.id)}>
+                  Fill in Pathik
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         <Stat label="Arriving today" value={c.arrivals} icon={<LogIn />} tone="violet" sub={c.arrivals ? "Waiting to check in" : "No more arrivals"} />
         <Stat label="Leaving today" value={c.departures} icon={<LogOut />} tone="amber" sub={c.departures ? "To check out" : "All done"} />
@@ -126,25 +151,6 @@ export function Dashboard() {
         </div>
 
         <div className="space-y-4">
-          {settings?.pathik && (pathik.data?.length ?? 0) > 0 && (
-            <Panel title={`Not entered in Pathik (${pathik.data!.length})`} subtitle="Police guest register" padded={false} actions={<ShieldCheck className="size-4 text-amber-500" />}>
-              <ul className="divide-y divide-slate-100">
-                {pathik.data!.slice(0, 8).map((b) => (
-                  <li key={b.id} className="flex items-center justify-between gap-2 px-4 py-2 text-[12.5px]">
-                    <button className="min-w-0 text-left" onClick={() => navigate(`/bookings/${b.id}`)}>
-                      <span className="block truncate font-medium text-slate-800">{b.guestName}</span>
-                      <span className="text-slate-500">
-                        Room {b.roomNumber} · {b.status === "checked_out" ? "left" : "staying"}
-                      </span>
-                    </button>
-                    <Button size="sm" onClick={() => setPathikFor(b.id)}>
-                      Fill in Pathik
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </Panel>
-          )}
           <Panel title="Money">
             <Row label="Received today">{money(data.money.received, cur)}</Row>
             {data.money.refunded > 0 && <Row label="Refunded today">− {money(data.money.refunded, cur)}</Row>}

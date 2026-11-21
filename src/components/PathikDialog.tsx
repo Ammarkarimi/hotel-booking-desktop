@@ -166,7 +166,7 @@ export function PathikDialog({ open, onClose, bookingId, onChanged }: { open: bo
 }
 
 /** The details Pathik asks for, on one screen: the guest's address and the journey. */
-function PathikDetailsDialog({ open, onClose, bookingId, onSaved }: { open: boolean; onClose: () => void; bookingId: string; onSaved: () => void }) {
+export function PathikDetailsDialog({ open, onClose, bookingId, onSaved }: { open: boolean; onClose: () => void; bookingId: string; onSaved: () => void }) {
   const { toast } = useApp();
   const [b, setB] = useState<FullBooking | null>(null);
   const [g, setG] = useState<Record<string, string>>({});

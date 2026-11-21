@@ -125,6 +125,11 @@ export function NewBooking() {
         walkIn,
         allowBlacklisted: allowBlocked,
       });
+      if (walkIn && b.status === "reserved") {
+        toast(`Booking #${b.number} made. Add the details Pathik needs, then check in.`);
+        navigate(`/bookings/${b.id}?do=checkin`, { replace: true });
+        return;
+      }
       toast(walkIn ? `Booking #${b.number} made and ${b.guestName} checked in to room ${b.room.roomNumber}` : `Booking #${b.number} confirmed for ${b.guestName}`);
       navigate(`/bookings/${b.id}?created=1`, { replace: true });
     } catch (e) {
