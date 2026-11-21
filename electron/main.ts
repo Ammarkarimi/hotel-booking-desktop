@@ -132,7 +132,7 @@ function registerIpc() {
     const win = BrowserWindow.fromWebContents(e.sender);
     const res = await dialog.showSaveDialog(win!, { defaultPath: join(app.getPath("documents"), `${name.replace(/[\\/:*?"<>|]/g, "-")}.pdf`), filters: [{ name: "PDF", extensions: ["pdf"] }] });
     if (res.canceled || !res.filePath) return null;
-    const data = await e.sender.printToPDF({ pageSize: "A4", printBackground: true, margins: { marginType: "default" } });
+    const data = await e.sender.printToPDF({ pageSize: "A4", printBackground: true, margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 } });
     writeFileSync(res.filePath, data);
     void shell.openPath(res.filePath);
     return res.filePath;
