@@ -171,6 +171,42 @@ export function SettingsPage() {
           <SaveBar keys={["staffShifts", "idCheckRequired"]} />
         </Panel>
       )}
+      {tab === "desk" && (
+        <Panel title="Pathik (police guest register)" subtitle="Hotels in Gujarat enter every guest in Pathik" className="mt-4">
+          <div className="space-y-3">
+            <Toggle checked={v.pathik} onChange={(x) => set("pathik", x)} label="Fill in Pathik from this software" hint="Adds “Fill in Pathik” to bookings and a list of guests not entered yet. Pathik opens in its own window and its Add Guest form is filled in — with every adult in the room. ID numbers and photos are added by hand." />
+            {v.pathik && (
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Add Guest page address" className="col-span-3" hint="Change only if Pathik moves its Add Guest page">
+                  <Input value={v.pathikUrl} onChange={(e) => set("pathikUrl", e.target.value.trim())} />
+                </Field>
+                <Field label="Date format in Pathik">
+                  <Select value={v.pathikDateFormat} onChange={(e) => set("pathikDateFormat", e.target.value)} options={["dd/mm/yyyy", "dd-mm-yyyy", "yyyy-mm-dd", "mm/dd/yyyy"]} />
+                </Field>
+                <Field label="Time format in Pathik">
+                  <Select value={v.pathikTimeFormat} onChange={(e) => set("pathikTimeFormat", e.target.value as Settings["pathikTimeFormat"])} options={[{ value: "12h", label: "02:05 PM" }, { value: "24h", label: "14:05" }]} />
+                </Field>
+                <div className="flex items-end">
+                  <Button
+                    variant="ghost"
+                    onClick={async () => {
+                      try {
+                        await api("pathik.forgetLogin");
+                        toast("Signed out of Pathik on this computer");
+                      } catch (e) {
+                        toast(errorText(e), "error");
+                      }
+                    }}
+                  >
+                    Sign out of Pathik
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+          <SaveBar keys={["pathik", "pathikUrl", "pathikDateFormat", "pathikTimeFormat"]} />
+        </Panel>
+      )}
 
       {tab === "backup" && <Backups v={v} set={set} save={save} />}
       {tab === "license" && (

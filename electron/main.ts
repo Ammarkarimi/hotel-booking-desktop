@@ -8,6 +8,7 @@ import { handle, startupTasks } from "./api/index";
 import { setTrialFile } from "./license";
 import { backupNow, setDefaultBackupFolder } from "./backup";
 import { getSettings } from "./api/settings";
+import { setPathikNotifier } from "./pathik";
 
 process.removeAllListeners("warning"); // node:sqlite prints an "experimental" warning
 
@@ -181,7 +182,7 @@ function registerIpc() {
     const d = new Date();
     const res = await dialog.showSaveDialog(win!, { defaultPath: join(app.getPath("documents"), `innvela-backup-${d.toISOString().slice(0, 10)}.db`), filters: [{ name: "Innvela backup", extensions: ["db"] }] });
     if (res.canceled || !res.filePath) return null;
-    const r = handle("backup.saveAs", { file: res.filePath });
+    const r = await handle("backup.saveAs", { file: res.filePath });
     if (!r.ok) throw new Error(r.error);
     return res.filePath;
   });
@@ -211,6 +212,7 @@ if (!app.requestSingleInstanceLock()) {
     }
     startupTasks();
     registerIpc();
+    setPathikNotifier((status) => mainWindow?.webContents.send("pathik:status", status));
     buildMenu();
     createWindow();
   });

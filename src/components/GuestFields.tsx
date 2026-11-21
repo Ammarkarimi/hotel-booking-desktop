@@ -55,6 +55,12 @@ export function GuestFields({ value, onChange, full }: { value: GuestDraft; onCh
           <Field label="Address" className="col-span-2">
             <Input value={value.address ?? ""} onChange={(e) => set("address", e.target.value)} />
           </Field>
+          <Field label="Locality / area">
+            <Input value={value.locality ?? ""} onChange={(e) => set("locality", e.target.value)} />
+          </Field>
+          <Field label="District">
+            <Input value={value.district ?? ""} onChange={(e) => set("district", e.target.value)} />
+          </Field>
           <Field label="PIN code">
             <Input value={value.pinCode ?? ""} onChange={(e) => set("pinCode", e.target.value)} maxLength={10} />
           </Field>

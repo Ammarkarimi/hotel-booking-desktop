@@ -14,6 +14,7 @@ import { reportsApi } from "./reports";
 import { settingsApi, writeSettings, getSettings } from "./settings";
 import { createStaff, staffApi } from "./staff";
 import { loadSampleData } from "./sample-data";
+import { pathikApi } from "./pathik";
 
 type Handler = (args: never) => unknown;
 
@@ -39,7 +40,10 @@ const systemApi = {
   "setup.complete": (input: { hotel: Partial<Settings>; owner: { name: string; username: string; password: string }; rooms?: Array<{ from: number; to: number; type: string; pricePerNight: number; capacity: number }>; sample?: boolean }) => {
     if (!needsSetup()) fail("The software is already set up");
     tx(() => {
-      writeSettings(input.hotel ?? {});
+      const hotel = input.hotel ?? {};
+      // Hotels in Gujarat enter every guest in Pathik.
+      const gujarat = hotel.state === "Gujarat" || (hotel.gstin ?? "").startsWith("24");
+      writeSettings({ ...hotel, ...(gujarat ? { pathik: true } : {}) });
       createStaff({ ...input.owner, role: "owner" });
       for (const r of input.rooms ?? []) {
         for (let n = Number(r.from); n <= Number(r.to) && n - Number(r.from) < 300; n++) addRoom({ roomNumber: String(n), type: r.type, pricePerNight: r.pricePerNight, capacity: r.capacity });
@@ -93,12 +97,13 @@ const handlers: Record<string, Handler> = {
   ...(guestsApi as Record<string, Handler>),
   ...(bookingsApi as Record<string, Handler>),
   ...(reportsApi as Record<string, Handler>),
+  ...(pathikApi as Record<string, Handler>),
 };
 
 // What still works when the licence has run out: signing in, the licence screen and backups.
 const ALWAYS = new Set(["app.info", "license.info", "license.activate", "auth.users", "auth.login", "auth.logout", "auth.session", "settings.get", "backup.status", "backup.now", "backup.saveAs", "setup.complete"]);
 
-export function handle(method: string, args: unknown): { ok: true; data: unknown } | { ok: false; error: string } {
+export async function handle(method: string, args: unknown): Promise<{ ok: true; data: unknown } | { ok: false; error: string }> {
   const fn = handlers[method];
   try {
     if (!fn) throw new UserError(`Unknown request: ${method}`);
@@ -113,7 +118,7 @@ export function handle(method: string, args: unknown): { ok: true; data: unknown
       }
     }
     if (method !== "auth.login" && method.startsWith("bookings.")) requireStaff();
-    return { ok: true, data: (fn as (a: unknown) => unknown)(args ?? {}) };
+    return { ok: true, data: await (fn as (a: unknown) => unknown)(args ?? {}) };
   } catch (err) {
     if (err instanceof UserError) return { ok: false, error: err.message };
     console.error(method, err);

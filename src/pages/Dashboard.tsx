@@ -1,12 +1,14 @@
 // Today at a glance: who arrives and leaves, every room's state, money received and still due.
 import { useNavigate } from "react-router-dom";
-import { BedDouble, CalendarCheck, DoorOpen, IndianRupee, LogIn, LogOut, RefreshCw, Sparkles, Wrench, Crown } from "lucide-react";
+import { ShieldCheck, BedDouble, CalendarCheck, DoorOpen, IndianRupee, LogIn, LogOut, RefreshCw, Sparkles, Wrench, Crown } from "lucide-react";
 import { api } from "../api";
 import { useApp } from "../state";
 import { Badge, Button, Empty, Loading, Page, Panel, PayBadge, Row, Stat, cx, useLoad } from "../components/ui";
 import { formatDate, formatShortDate, formatTime, dayName, todayKey } from "../../shared/dates";
 import { label, money } from "../../shared/format";
 import type { BookingRow, Room } from "../../shared/types";
+import { useState } from "react";
+import { PathikDialog } from "../components/PathikDialog";
 
 interface Dash {
   today: string;
@@ -39,6 +41,8 @@ export function Dashboard() {
   const { session, settings, can } = useApp();
   const navigate = useNavigate();
   const { data, loading, reload } = useLoad(() => api<Dash>("dashboard.get"), []);
+  const pathik = useLoad(() => api<BookingRow[]>("pathik.pending"), [settings?.pathik]);
+  const [pathikFor, setPathikFor] = useState<string | null>(null);
   const cur = settings?.currency;
   if (!data) return <Loading />;
   const c = data.counts;
@@ -122,6 +126,25 @@ export function Dashboard() {
         </div>
 
         <div className="space-y-4">
+          {settings?.pathik && (pathik.data?.length ?? 0) > 0 && (
+            <Panel title={`Not entered in Pathik (${pathik.data!.length})`} subtitle="Police guest register" padded={false} actions={<ShieldCheck className="size-4 text-amber-500" />}>
+              <ul className="divide-y divide-slate-100">
+                {pathik.data!.slice(0, 8).map((b) => (
+                  <li key={b.id} className="flex items-center justify-between gap-2 px-4 py-2 text-[12.5px]">
+                    <button className="min-w-0 text-left" onClick={() => navigate(`/bookings/${b.id}`)}>
+                      <span className="block truncate font-medium text-slate-800">{b.guestName}</span>
+                      <span className="text-slate-500">
+                        Room {b.roomNumber} · {b.status === "checked_out" ? "left" : "staying"}
+                      </span>
+                    </button>
+                    <Button size="sm" onClick={() => setPathikFor(b.id)}>
+                      Fill in Pathik
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          )}
           <Panel title="Money">
             <Row label="Received today">{money(data.money.received, cur)}</Row>
             {data.money.refunded > 0 && <Row label="Refunded today">− {money(data.money.refunded, cur)}</Row>}
@@ -178,6 +201,7 @@ export function Dashboard() {
           </Panel>
         </div>
       </div>
+      {pathikFor && <PathikDialog open onClose={() => setPathikFor(null)} bookingId={pathikFor} onChanged={pathik.reload} />}
     </Page>
   );
 }

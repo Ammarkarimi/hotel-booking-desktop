@@ -21,6 +21,7 @@ a **monthly or yearly licence**, entered as a key that only works on their compu
 | **Housekeeping** | Needs cleaning → being cleaned → ready to check → clean. Rooms with guests arriving today come first. Out-of-order rooms. A *Housekeeping* role sees only this board |
 | **Staff sign-ins** | Every person signs in with their own name and password. Roles: owner, manager, front desk, housekeeping. Front-desk **shifts**: start with the last handover note, end with a handover note and the cash counted; the owner sees sign-in times, hours, cash taken vs counted and the full history of who did what |
 | **WhatsApp messages** | Booking confirmation, welcome at check-in, thank-you at check-out (with the invoice number and Google review link) and payment reminder — filled in from the booking, in the owner's own wording, opened in WhatsApp Desktop or WhatsApp Web ready to send. Every message is logged |
+| **Pathik automation** | For hotels in Gujarat: *Fill in Pathik* opens Pathik (the police guest register, pathik.guru) in its own window and fills its **Add Guest** form from the booking — name, address, district, PIN, state, date of birth, mobile, email, ID type, journey, room, check-in/out dates and times, adults, children, vehicle — and a block for **every other adult** in the room with their name and ID type. The Pathik sign-in is remembered. It lists what Pathik still needs and lets you add it on one screen. Staff add the ID number and photo, press Submit in Pathik, then mark the stay *Entered in Pathik*; the Dashboard lists guests not entered yet. No Chrome extension is needed |
 | **Reports** | Any dates: occupancy, room earnings, ADR, RevPAR, extras, GST collected, money received by method, room types, booking sources, cancellations; charts per day; day-by-day table; **GST invoice register** and GST by rate (for GSTR-1 / 3B); guests who still owe money. Everything downloads for Excel |
 | **Also** | Guest profiles with stay history, VIP and “do not allow” flags; rooms, weekend prices and festival / off-season prices; automatic daily backups; first-run setup wizard; optional sample data for training |
 
@@ -29,6 +30,7 @@ a **monthly or yearly licence**, entered as a key that only works on their compu
 | ![New booking](docs/screenshots/new-booking.png) | ![Booking](docs/screenshots/booking.png) |
 | ![GST invoice](docs/screenshots/gst-invoice.png) | ![Calendar](docs/screenshots/calendar.png) |
 | ![Reports](docs/screenshots/reports.png) | ![Housekeeping](docs/screenshots/housekeeping.png) |
+| ![Pathik filled in](docs/screenshots/pathik-filled.png) | |
 
 ---
 
@@ -117,6 +119,12 @@ Moving the clock back does not extend a licence.
    *Settings → Backups* so the data survives if the computer breaks. *Restore from file* brings a
    backup back (a copy of the current data is saved first).
 
+5. **Pathik (Gujarat):** switched on by itself when the hotel is in Gujarat (or in *Settings → Front
+   desk*). After check-in press *Fill in Pathik* on the booking. Sign in to Pathik the first time
+   (it is remembered), check the filled form, add the ID number and photo, press Submit, then press
+   *Entered in Pathik*. If Pathik shows dates or times in another format, change it in the small
+   panel on the Pathik page or in *Settings → Front desk*.
+
 Keyboard: `Ctrl+B` new booking, `Ctrl+K` find a booking, `Esc` close a window.
 
 ---
@@ -143,6 +151,8 @@ electron/            main process — the only code that touches the database
   db.ts              SQLite connection, helpers, schema migrations
   license.ts         licence check, trial, machine code
   backup.ts          daily backups, save copy, restore
+  pathik.ts          the Pathik window (its own saved session) and when to fill the form
+  pathik-page.js     runs inside Pathik's page: finds fields by their labels and fills them
   api/               one module per area; every request is checked against role and licence
 shared/              code used by both sides: GST & bill maths, dates, WhatsApp templates, types
 src/                 the screens (React)

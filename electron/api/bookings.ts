@@ -9,6 +9,7 @@ import { bool, fail, log, numberIn, opt, requirePerm, requireStaff, session, str
 import { getSettings, pricingRules, taxRules } from "./settings";
 import { guestFromRow, upsertGuest, type GuestInput } from "./guests";
 import { roomFromRow } from "./rooms";
+import { VEHICLE_TYPES } from "../../shared/pathik";
 
 export const ACTIVE = ["reserved", "checked_in"];
 
@@ -198,6 +199,7 @@ interface CreateInput {
   goingTo?: string;
   purpose?: string;
   vehicleNumber?: string;
+  vehicleType?: string;
   companions?: Companion[];
   advance?: { amount: number; method: string; reference?: string };
   walkIn?: boolean;
@@ -263,6 +265,7 @@ export function createBooking(input: CreateInput) {
       goingTo: opt(input.goingTo, 100),
       purpose: opt(input.purpose, 100),
       vehicleNumber: opt(input.vehicleNumber, 30),
+      vehicleType: VEHICLE_TYPES.includes(str(input.vehicleType)) ? str(input.vehicleType) : null,
       companions: JSON.stringify(cleanCompanions(input.companions)),
       createdBy: staff.name,
       createdAt: at,
@@ -389,6 +392,7 @@ export const bookingsApi = {
       // Notes and travel details can always be changed.
       const always: Record<string, unknown> = {};
       for (const k of ["notes", "comingFrom", "goingTo", "purpose", "vehicleNumber", "otaReference"]) if (k in input) always[k] = opt(input[k], k === "notes" ? 2000 : 100);
+      if ("vehicleType" in input) always.vehicleType = VEHICLE_TYPES.includes(str(input.vehicleType)) ? str(input.vehicleType) : null;
       if ("companions" in input) always.companions = JSON.stringify(cleanCompanions(input.companions));
       const changes: Record<string, unknown> = { ...always };
       const touchesStay = ["checkIn", "checkOut", "roomId", "ratePerNight", "discount", "fixedRate", "gstRate", "adults", "children", "source"].some((k) => k in input);

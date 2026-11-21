@@ -8,6 +8,7 @@ import { CHARGE_CATEGORIES, ID_TYPES, PAYMENT_METHODS, SOURCES, label, money, mo
 import { addDays, formatDate, nightsBetween, todayKey } from "../../../shared/dates";
 import type { Folio } from "../../../shared/pricing";
 import type { FullBooking, Room } from "../../../shared/types";
+import { VEHICLE_LABELS, VEHICLE_TYPES } from "../../../shared/pathik";
 
 type Done = (b: FullBooking) => void;
 
@@ -538,7 +539,7 @@ export function PriceDialog({ open, onClose, booking, onDone }: { open: boolean;
 
 export function NotesDialog({ open, onClose, booking, onDone }: { open: boolean; onClose: () => void; booking: FullBooking; onDone: Done }) {
   const { toast } = useApp();
-  const [v, setV] = useState({ notes: "", comingFrom: "", goingTo: "", purpose: "", vehicleNumber: "", companions: "" });
+  const [v, setV] = useState({ notes: "", comingFrom: "", goingTo: "", purpose: "", vehicleNumber: "", vehicleType: "", companions: "" });
   const { busy, error, run } = useAction((b) => (onDone(b), toast("Saved")), onClose);
   useEffect(() => {
     if (open)
@@ -548,6 +549,7 @@ export function NotesDialog({ open, onClose, booking, onDone }: { open: boolean;
         goingTo: booking.goingTo ?? "",
         purpose: booking.purpose ?? "",
         vehicleNumber: booking.vehicleNumber ?? "",
+        vehicleType: booking.vehicleType ?? "",
         companions: booking.companions.map((c) => c.name).join("\n"),
       });
   }, [open, booking]);
@@ -593,6 +595,9 @@ export function NotesDialog({ open, onClose, booking, onDone }: { open: boolean;
         </Field>
         <Field label="Purpose of visit">
           <Input value={v.purpose} onChange={(e) => set("purpose", e.target.value)} />
+        </Field>
+        <Field label="Travelling by">
+          <Select value={v.vehicleType} onChange={(e) => set("vehicleType", e.target.value)} options={[{ value: "", label: "—" }, ...VEHICLE_TYPES.map((t) => ({ value: t, label: VEHICLE_LABELS[t] }))]} />
         </Field>
         <Field label="Vehicle number">
           <Input value={v.vehicleNumber} onChange={(e) => set("vehicleNumber", e.target.value.toUpperCase())} />

@@ -41,6 +41,11 @@ export interface Settings {
   // Front desk
   staffShifts: boolean;
   idCheckRequired: boolean;
+  // Pathik (Gujarat police guest register)
+  pathik: boolean;
+  pathikUrl: string;
+  pathikDateFormat: string; // dd/mm/yyyy, dd-mm-yyyy, yyyy-mm-dd, mm/dd/yyyy
+  pathikTimeFormat: "12h" | "24h";
   // Backups
   autoBackup: boolean;
   backupFolder: string;
@@ -84,7 +89,9 @@ export interface Guest {
   dateOfBirth: string | null;
   nationality: string;
   address: string | null;
+  locality: string | null;
   city: string | null;
+  district: string | null;
   state: string | null;
   pinCode: string | null;
   company: string | null;
@@ -136,6 +143,9 @@ export interface Booking {
   goingTo: string | null;
   purpose: string | null;
   vehicleNumber: string | null;
+  vehicleType: string | null; // four_wheeler, two_wheeler, bus, auto, other, none
+  pathikAt: string | null; // when the stay was marked as entered in Pathik
+  pathikBy: string | null;
   companions: Companion[];
   createdBy: string | null;
   createdAt: string;

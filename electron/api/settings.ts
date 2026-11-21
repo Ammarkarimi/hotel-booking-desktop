@@ -39,6 +39,10 @@ export const DEFAULT_SETTINGS: Settings = {
   reviewLink: "",
   staffShifts: true,
   idCheckRequired: true,
+  pathik: false,
+  pathikUrl: "https://pathik.guru/dashboard/add",
+  pathikDateFormat: "dd/mm/yyyy",
+  pathikTimeFormat: "12h",
   autoBackup: true,
   backupFolder: "",
   keepBackups: 30,
@@ -85,6 +89,9 @@ function sanitize(input: Partial<Settings>): Partial<Settings> {
   }
   if (out.taxMode && !["india_gst", "flat", "none"].includes(out.taxMode as string)) fail("Unknown tax mode");
   if (out.whatsappMode && !["app", "web"].includes(out.whatsappMode as string)) fail("Unknown WhatsApp mode");
+  if (typeof out.pathikUrl === "string" && !/^(https:\/\/[\w.-]+|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?)(\/|$)/.test(out.pathikUrl as string)) fail("The Pathik address must start with https://");
+  if (out.pathikDateFormat && !["dd/mm/yyyy", "dd-mm-yyyy", "yyyy-mm-dd", "mm/dd/yyyy"].includes(out.pathikDateFormat as string)) fail("Unknown date format");
+  if (out.pathikTimeFormat && !["12h", "24h"].includes(out.pathikTimeFormat as string)) fail("Unknown time format");
   if (typeof out.gstin === "string") out.gstin = (out.gstin as string).toUpperCase();
   for (const t of ["checkInTime", "checkOutTime"]) {
     if (typeof out[t] === "string" && !/^\d{2}:\d{2}$/.test(out[t] as string)) fail("Please enter times like 12:00");

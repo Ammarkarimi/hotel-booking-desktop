@@ -13,5 +13,10 @@ contextBridge.exposeInMainWorld("innvela", {
   saveBackupAs: () => ipcRenderer.invoke("backup:saveAs"),
   showFolder: (path: string) => ipcRenderer.invoke("folder:show", path),
   readTextFile: (path: string) => ipcRenderer.invoke("file:readText", path),
+  onPathikStatus: (fn: (s: { bookingId: string; state: string; message?: string }) => void) => {
+    const listener = (_e: unknown, s: { bookingId: string; state: string; message?: string }) => fn(s);
+    ipcRenderer.on("pathik:status", listener);
+    return () => ipcRenderer.removeListener("pathik:status", listener);
+  },
   platform: process.platform,
 });

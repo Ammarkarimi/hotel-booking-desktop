@@ -13,6 +13,7 @@ export interface Bridge {
   saveBackupAs: () => Promise<string | null>;
   showFolder: (path: string) => Promise<boolean>;
   readTextFile: (path: string) => Promise<string | null>;
+  onPathikStatus: (fn: (s: { bookingId: string; state: "opened" | "waiting" | "filled" | "closed" | "error"; message?: string }) => void) => () => void;
   platform: string;
 }
 

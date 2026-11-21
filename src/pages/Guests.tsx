@@ -210,7 +210,7 @@ export function GuestDetail() {
           <Panel title="Details">
             <Row label="Phone">{g.phone}</Row>
             <Row label="Email">{g.email || "—"}</Row>
-            <Row label="Address">{[g.address, g.city, g.state, g.pinCode].filter(Boolean).join(", ") || "—"}</Row>
+            <Row label="Address">{[g.address, g.locality, g.city, g.district, g.state, g.pinCode].filter(Boolean).join(", ") || "—"}</Row>
             <Row label="Nationality">{g.nationality}</Row>
             {g.passportNo && <Row label="Passport">{g.passportNo}</Row>}
             <Row label="ID usually shown">{g.idType ? label(g.idType) : "—"}</Row>

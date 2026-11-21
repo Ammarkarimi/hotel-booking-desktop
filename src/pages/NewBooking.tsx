@@ -9,6 +9,7 @@ import { GuestFields, type GuestDraft } from "../components/GuestFields";
 import { addDays, formatDate, formatShortDate, nightsBetween, todayKey } from "../../shared/dates";
 import { PAYMENT_METHODS, SOURCES, label, money, money2 } from "../../shared/format";
 import type { Folio } from "../../shared/pricing";
+import { VEHICLE_LABELS, VEHICLE_TYPES } from "../../shared/pathik";
 import type { FullBooking, GuestSummary, Room } from "../../shared/types";
 
 interface Avail {
@@ -45,6 +46,7 @@ export function NewBooking() {
   const [notes, setNotes] = useState("");
   const [comingFrom, setComingFrom] = useState("");
   const [purpose, setPurpose] = useState("");
+  const [vehicleType, setVehicleType] = useState("");
   const [quote, setQuote] = useState<Folio | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -118,6 +120,7 @@ export function NewBooking() {
         notes,
         comingFrom,
         purpose,
+        vehicleType,
         advance: Number(advance) > 0 ? { amount: Number(advance), method, reference: payRef } : undefined,
         walkIn,
         allowBlacklisted: allowBlocked,
@@ -310,7 +313,12 @@ export function NewBooking() {
               <Field label="Purpose of visit">
                 <Select value={purpose} onChange={(e) => setPurpose(e.target.value)} options={["", "Tourism", "Business", "Family visit", "Wedding", "Medical", "Pilgrimage", "Other"].map((p) => ({ value: p, label: p || "—" }))} />
               </Field>
-              <Field label="Notes" className="col-span-2">
+              {settings?.pathik && (
+                <Field label="Travelling by" hint="Asked by Pathik">
+                  <Select value={vehicleType} onChange={(e) => setVehicleType(e.target.value)} options={[{ value: "", label: "—" }, ...VEHICLE_TYPES.map((v) => ({ value: v, label: VEHICLE_LABELS[v] }))]} />
+                </Field>
+              )}
+              <Field label="Notes" className={settings?.pathik ? "col-span-1" : "col-span-2"}>
                 <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={1} placeholder="Early arrival, extra bed, airport pickup…" />
               </Field>
             </div>

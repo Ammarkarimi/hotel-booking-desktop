@@ -329,6 +329,14 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX hk_log_created ON hk_log (createdAt);
   `,
+  // 2: Pathik (the Gujarat police guest register): which stays are entered, and the details it asks for.
+  `
+  ALTER TABLE bookings ADD COLUMN pathikAt TEXT;
+  ALTER TABLE bookings ADD COLUMN pathikBy TEXT;
+  ALTER TABLE bookings ADD COLUMN vehicleType TEXT;
+  ALTER TABLE guests ADD COLUMN district TEXT;
+  ALTER TABLE guests ADD COLUMN locality TEXT;
+  `,
 ];
 
 function migrate() {

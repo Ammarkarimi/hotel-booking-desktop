@@ -1,18 +1,20 @@
 // One booking: the stay, the bill, payments, ID checks, WhatsApp messages and every action.
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Ban, BedDouble, CalendarClock, CheckCircle2, Crown, FileText, IdCard, IndianRupee, LogIn, LogOut, MessageCircle, MoreHorizontal, Pencil, Plus, Printer, RotateCcw, Trash2, Undo2, UserRound, Receipt, ClipboardList } from "lucide-react";
+import { ArrowLeft, Ban, ShieldCheck, BedDouble, CalendarClock, CheckCircle2, Crown, FileText, IdCard, IndianRupee, LogIn, LogOut, MessageCircle, MoreHorizontal, Pencil, Plus, Printer, RotateCcw, Trash2, Undo2, UserRound, Receipt, ClipboardList } from "lucide-react";
 import { api, bridge, errorText } from "../api";
 import { useApp } from "../state";
 import { Badge, Button, Confirm, Loading, Note, Page, Panel, Row, StatusBadge, cx, useLoad } from "../components/ui";
 import { CancelDialog, ChargeDialog, CheckInDialog, CheckOutDialog, EditStayDialog, IdDialog, NotesDialog, PaymentDialog, PriceDialog } from "../components/booking/Dialogs";
 import { WhatsAppDialog } from "../components/WhatsAppDialog";
+import { PathikDialog } from "../components/PathikDialog";
 import { formatDate, formatDateTime, formatShortDate, todayKey } from "../../shared/dates";
 import { label, money2, money } from "../../shared/format";
 import { MESSAGE_TITLES, type MessageKind } from "../../shared/messages";
+import { VEHICLE_LABELS } from "../../shared/pathik";
 import type { ActivityEntry, FullBooking } from "../../shared/types";
 
-type DialogName = "pay" | "refund" | "charge" | "checkin" | "checkout" | "cancel" | "noshow" | "edit" | "price" | "notes" | "id" | "wa" | "delete" | "undo" | null;
+type DialogName = "pathik" | "pay" | "refund" | "charge" | "checkin" | "checkout" | "cancel" | "noshow" | "edit" | "price" | "notes" | "id" | "wa" | "delete" | "undo" | null;
 
 export function BookingDetail() {
   const { id } = useParams();
@@ -185,6 +187,16 @@ export function BookingDetail() {
         </Note>
       )}
       {b.status === "reserved" && b.checkInDate < today && <Note tone="amber" className="mb-4">This guest was due on {formatDate(b.checkInDate)} and has not checked in. Check them in, or mark the booking as no-show.</Note>}
+      {settings?.pathik && b.status === "checked_in" && !b.pathikAt && (
+        <Note tone="blue" icon={<ShieldCheck />} className="mb-4">
+          <div className="flex items-center justify-between gap-2">
+            <span>This guest is not entered in Pathik yet.</span>
+            <Button size="sm" variant="primary" onClick={() => setDialog("pathik")}>
+              Fill in Pathik
+            </Button>
+          </div>
+        </Note>
+      )}
       {b.status === "checked_in" && b.checkOutDate < today && <Note tone="amber" className="mb-4">This guest was due to leave on {formatDate(b.checkOutDate)}. Extend the stay or check them out.</Note>}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_360px]">
@@ -407,11 +419,27 @@ export function BookingDetail() {
             ))}
           </Panel>
 
+          {settings?.pathik && b.status !== "cancelled" && b.status !== "no_show" && (
+            <Panel title="Pathik (police register)" actions={<ShieldCheck className="size-4 text-slate-400" />}>
+              {b.pathikAt ? (
+                <p className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-700">
+                  <CheckCircle2 className="size-4" /> Entered by {b.pathikBy}, {formatDateTime(b.pathikAt)}
+                </p>
+              ) : (
+                <p className="text-[13px] text-slate-600">{b.status === "reserved" ? "Enter the guest in Pathik after check-in." : "Not entered in Pathik yet."}</p>
+              )}
+              <Button size="sm" className="mt-2" variant={b.pathikAt || b.status === "reserved" ? "secondary" : "primary"} icon={<ShieldCheck className="size-3.5" />} onClick={() => setDialog("pathik")}>
+                {b.pathikAt ? "Open Pathik details" : "Fill in Pathik"}
+              </Button>
+            </Panel>
+          )}
+
           <Panel title="Travel & notes" actions={<Button size="sm" variant="ghost" icon={<Pencil className="size-3.5" />} onClick={() => setDialog("notes")}>Edit</Button>}>
             <Row label="Coming from">{b.comingFrom || "—"}</Row>
             <Row label="Going to">{b.goingTo || "—"}</Row>
             <Row label="Purpose">{b.purpose || "—"}</Row>
-            <Row label="Vehicle">{b.vehicleNumber || "—"}</Row>
+            <Row label="Travelling by">{b.vehicleType ? VEHICLE_LABELS[b.vehicleType] : "—"}</Row>
+            <Row label="Vehicle no.">{b.vehicleNumber || "—"}</Row>
             {b.notes && <p className="mt-2 rounded bg-slate-50 px-2 py-1.5 text-[12.5px] whitespace-pre-wrap text-slate-700">{b.notes}</p>}
           </Panel>
 
@@ -434,6 +462,7 @@ export function BookingDetail() {
         </div>
       </div>
 
+      {settings?.pathik && <PathikDialog open={dialog === "pathik"} onClose={close} bookingId={b.id} onChanged={() => void api<FullBooking>("bookings.get", { id: b.id }).then(done)} />}
       <PaymentDialog open={dialog === "pay"} onClose={close} booking={b} onDone={done} />
       <PaymentDialog open={dialog === "refund"} onClose={close} booking={b} refund onDone={done} />
       <ChargeDialog open={dialog === "charge"} onClose={close} booking={b} onDone={done} />
