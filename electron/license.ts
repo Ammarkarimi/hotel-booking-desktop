@@ -62,6 +62,23 @@ export function setTrialFile(dir: string) {
   trialFile = join(dir, ".install");
 }
 
+// On Windows the trial start is also kept in the registry (current user), which stays when the
+// software is uninstalled or its data folder is deleted.
+const REG_KEY = "HKCU\\Software\\Innvela\\HotelDesk";
+function trialInRegistry(set?: string): string | null {
+  if (process.platform !== "win32") return null;
+  try {
+    if (set) {
+      execSync(`reg add ${REG_KEY} /v TrialStart /t REG_SZ /d ${set} /f`, { windowsHide: true, stdio: "ignore" });
+      return set;
+    }
+    const out = execSync(`reg query ${REG_KEY} /v TrialStart`, { encoding: "utf8", windowsHide: true, stdio: ["ignore", "pipe", "ignore"] });
+    return /TrialStart\s+REG_SZ\s+(\d{4}-\d{2}-\d{2})/.exec(out)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function trialStart(): string {
   let start = getMeta("trial_started");
   let fileStart: string | null = null;
@@ -70,10 +87,12 @@ function trialStart(): string {
   } catch {
     fileStart = null;
   }
-  // The earliest record wins, so a new database does not restart the trial.
-  const candidates = [start, fileStart].filter((d): d is string => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d));
+  const regStart = trialInRegistry();
+  // The earliest record wins, so a new database (or a deleted data folder) does not restart the trial.
+  const candidates = [start, fileStart, regStart].filter((d): d is string => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d));
   start = candidates.sort()[0] ?? todayKey();
   setMeta("trial_started", start);
+  if (regStart !== start) trialInRegistry(start);
   try {
     if (trialFile && fileStart !== start) writeFileSync(trialFile, start);
   } catch {
@@ -91,7 +110,19 @@ function clockOk(): boolean {
   return true;
 }
 
+// The licence is checked on every request, so the answer is kept for a minute.
+let cached: { at: number; info: LicenseInfo } | null = null;
+export function clearLicenseCache() {
+  cached = null;
+}
 export function licenseInfo(): LicenseInfo {
+  if (cached && Date.now() - cached.at < 60_000) return cached.info;
+  const info = computeLicenseInfo();
+  cached = { at: Date.now(), info };
+  return info;
+}
+
+function computeLicenseInfo(): LicenseInfo {
   const today = todayKey();
   const machine = machineCode();
   if (!clockOk()) {
@@ -127,6 +158,7 @@ export function activateLicense(key: string): LicenseInfo {
   if (!result.ok) throw new Error(result.error);
   if (result.payload.expires < todayKey()) throw new Error(`This licence ended on ${result.payload.expires}. Please ask for a renewed key.`);
   setMeta("license_key", key.replace(/\s+/g, ""));
+  clearLicenseCache();
   return licenseInfo();
 }
 

@@ -2,7 +2,7 @@
 // own window with a saved session, so the hotel signs in once and stays signed in. When the
 // "Add Guest" form opens, the booking's details are filled in by pathik-page.js; staff check
 // them, add the ID number and photo, and press Submit in Pathik themselves.
-import { BrowserWindow, shell, session } from "electron";
+import { app, BrowserWindow, shell, session } from "electron";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { PathikRecord } from "../shared/pathik";
@@ -66,6 +66,7 @@ export function openPathik(opts: { record: PathikRecord; addGuestUrl: string; da
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,
+        devTools: !app.isPackaged,
       },
     });
     win.setMenuBarVisibility(false);
@@ -73,8 +74,11 @@ export function openPathik(opts: { record: PathikRecord; addGuestUrl: string; da
     // Links Pathik opens in a new tab stay in this window when they are on Pathik, else go to the browser.
     wc.setWindowOpenHandler(({ url }) => {
       if (originOf(url) === originOf(pending?.addGuestUrl ?? opts.addGuestUrl)) void wc.loadURL(url);
-      else if (/^https?:/i.test(url)) void shell.openExternal(url);
+      else if (/^https:\/\//i.test(url)) void shell.openExternal(url);
       return { action: "deny" };
+    });
+    wc.on("will-navigate", (e, url) => {
+      if (!/^https?:\/\//i.test(url)) e.preventDefault();
     });
     wc.on("did-finish-load", () => void tryFill());
     // Pathik may change pages without reloading (after signing in, or opening Add Guest).

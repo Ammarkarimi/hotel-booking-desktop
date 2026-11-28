@@ -103,12 +103,25 @@ export function needsShift(staff: Staff) {
   return getSettings().staffShifts && (staff.role === "front_desk" || staff.role === "manager");
 }
 
+const failedLogins = new Map<string, { count: number; until: number }>();
+
 export const staffApi = {
   "auth.users": () =>
     all<{ name: string; username: string; role: Role }>("SELECT name, username, role FROM staff WHERE active = 1 ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 ELSE 2 END, name"),
   "auth.login": ({ username, password }: { username: string; password: string }) => {
-    const row = get<StaffRow>("SELECT * FROM staff WHERE username = ?", str(username, 40).toLowerCase());
-    if (!row || !checkPassword(String(password ?? ""), row.passwordHash)) fail("The sign-in name or password is not right");
+    const name = str(username, 40).toLowerCase();
+    // After 5 wrong passwords the name is locked for a while (30 s, then longer), so a password
+    // cannot be guessed by trying many.
+    const lock = failedLogins.get(name);
+    if (lock && lock.until > Date.now()) fail(`Too many wrong passwords. Please wait ${Math.ceil((lock.until - Date.now()) / 1000)} seconds and try again.`);
+    const row = get<StaffRow>("SELECT * FROM staff WHERE username = ?", name);
+    if (!row || !checkPassword(String(password ?? "").slice(0, 200), row.passwordHash)) {
+      const n = (lock?.count ?? 0) + 1;
+      failedLogins.set(name, { count: n, until: n >= 5 ? Date.now() + Math.min(30_000 * 2 ** (n - 5), 15 * 60_000) : 0 });
+      if (n === 5) log("Sign-in locked after 5 wrong passwords", name);
+      fail("The sign-in name or password is not right");
+    }
+    failedLogins.delete(name);
     if (!row.active) fail("This account has been switched off. Please ask the owner.");
     const at = now();
     run("UPDATE staff SET lastLoginAt = ? WHERE id = ?", at, row.id);

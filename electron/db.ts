@@ -1,6 +1,6 @@
 // The hotel's database: one SQLite file on this computer (node:sqlite, built into Electron).
 // Every change runs through these helpers so values are converted the same way everywhere.
-import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import { DatabaseSync, type SQLInputValue, type StatementSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 
 let db: DatabaseSync | null = null;
@@ -9,7 +9,9 @@ let dbFile = "";
 export function openDatabase(file: string) {
   dbFile = file;
   db = new DatabaseSync(file);
-  db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
+  // WAL with synchronous=NORMAL is safe against power cuts for a single-PC app and much faster to save.
+  db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA temp_store = MEMORY; PRAGMA cache_size = -16000;");
+  stmts.clear();
   migrate();
   return db;
 }
@@ -17,10 +19,11 @@ export function openDatabase(file: string) {
 export function closeDatabase() {
   if (db) {
     try {
-      db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+      db.exec("PRAGMA optimize; PRAGMA wal_checkpoint(TRUNCATE)");
     } catch {
       /* ignore */
     }
+    stmts.clear();
     db.close();
     db = null;
   }
@@ -41,20 +44,32 @@ function clean(params: Param[]): SQLInputValue[] {
   return params.map((p) => (p === undefined ? null : typeof p === "boolean" ? (p ? 1 : 0) : p));
 }
 
+// Prepared statements are kept and reused: most screens run the same queries again and again.
+const stmts = new Map<string, StatementSync>();
+function prep(sql: string): StatementSync {
+  let s = stmts.get(sql);
+  if (!s) {
+    s = conn().prepare(sql);
+    if (stmts.size > 500) stmts.clear();
+    stmts.set(sql, s);
+  }
+  return s;
+}
+
 export function all<T = Record<string, unknown>>(sql: string, ...params: Param[]): T[] {
-  return conn().prepare(sql).all(...clean(params)) as T[];
+  return prep(sql).all(...clean(params)) as T[];
 }
 
 export function get<T = Record<string, unknown>>(sql: string, ...params: Param[]): T | undefined {
-  return conn().prepare(sql).get(...clean(params)) as T | undefined;
+  return prep(sql).get(...clean(params)) as T | undefined;
 }
 
 export function run(sql: string, ...params: Param[]) {
-  return conn().prepare(sql).run(...clean(params));
+  return prep(sql).run(...clean(params));
 }
 
 export function scalar<T = number>(sql: string, ...params: Param[]): T {
-  const row = conn().prepare(sql).get(...clean(params)) as Record<string, unknown> | undefined;
+  const row = prep(sql).get(...clean(params)) as Record<string, unknown> | undefined;
   return (row ? Object.values(row)[0] : null) as T;
 }
 
@@ -336,6 +351,16 @@ const MIGRATIONS: string[] = [
   ALTER TABLE bookings ADD COLUMN vehicleType TEXT;
   ALTER TABLE guests ADD COLUMN district TEXT;
   ALTER TABLE guests ADD COLUMN locality TEXT;
+  `,
+  // Indexes for the dashboard, reports, Pathik list and booking pages.
+  `
+  CREATE INDEX IF NOT EXISTS bookings_checkin ON bookings (checkInDate);
+  CREATE INDEX IF NOT EXISTS bookings_checkout ON bookings (checkOutDate);
+  CREATE INDEX IF NOT EXISTS bookings_actual_out ON bookings (actualCheckOut);
+  CREATE INDEX IF NOT EXISTS bills_invoice_date ON bills (invoiceDate);
+  CREATE INDEX IF NOT EXISTS id_checks_booking ON id_checks (bookingId);
+  CREATE INDEX IF NOT EXISTS activity_booking ON activity (bookingId);
+  CREATE INDEX IF NOT EXISTS guests_name ON guests (firstName, lastName);
   `,
 ];
 

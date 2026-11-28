@@ -4,7 +4,7 @@ import { DEFAULT_GST_SLABS, parseGstSlabs, type PricingRules, type TaxRules } fr
 import { DEFAULT_ROOM_TYPES } from "../../shared/format";
 import type { SeasonalRate, Settings } from "../../shared/types";
 import { all, insert, run, tx } from "../db";
-import { fail, log, numberIn, requirePerm, str } from "./context";
+import { fail, log, numberIn, requirePerm, requireStaff, str } from "./context";
 
 export const DEFAULT_SETTINGS: Settings = {
   hotelName: "My Hotel",
@@ -133,7 +133,7 @@ export const settingsApi = {
     log("Changed settings", Object.keys(input).join(", "));
     return s;
   },
-  "seasonal.list": () => seasonalRates(),
+  "seasonal.list": () => (requireStaff(), seasonalRates()),
   "seasonal.save": (input: Partial<SeasonalRate>) => {
     requirePerm("settings");
     const name = str(input.name, 80);

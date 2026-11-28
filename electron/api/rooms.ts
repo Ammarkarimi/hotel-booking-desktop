@@ -2,7 +2,7 @@
 import { todayKey } from "../../shared/dates";
 import type { Housekeeping, Room } from "../../shared/types";
 import { all, get, insert, now, run, scalar, tx, update } from "../db";
-import { fail, log, numberIn, opt, requirePerm, str } from "./context";
+import { fail, log, numberIn, opt, requirePerm, requireStaff, str } from "./context";
 import { getSettings } from "./settings";
 
 export function roomFromRow(r: Record<string, unknown>): Room {
@@ -38,7 +38,7 @@ export function addRoom(input: Partial<Room>) {
 }
 
 export const roomsApi = {
-  "rooms.list": () => listRooms(),
+  "rooms.list": () => (requireStaff(), listRooms()),
   "rooms.save": (input: Partial<Room>) => {
     requirePerm("rooms");
     return tx(() => {

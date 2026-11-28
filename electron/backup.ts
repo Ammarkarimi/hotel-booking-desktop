@@ -2,13 +2,28 @@
 // into a folder the owner can change (for example a USB drive or a Google Drive / OneDrive folder).
 import { DatabaseSync } from "node:sqlite";
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { closeDatabase, conn, databaseFile, getMeta, openDatabase, setMeta } from "./db";
 import { getSettings, clearSettingsCache } from "./api/settings";
+import { UserError } from "./api/context";
+import { clearLicenseCache } from "./license";
 
 let defaultFolder = "";
 export function setDefaultBackupFolder(dir: string) {
   defaultFolder = dir;
+}
+
+// Files the screens may read or write: only ones the person chose in a file dialog (or the
+// backups listed in the backup folder). A path typed by the screens alone is refused.
+const chosenFiles = new Set<string>();
+export function allowFile(file: string) {
+  chosenFiles.add(resolve(file));
+}
+export function assertFileAllowed(file: unknown, backups = false) {
+  const f = typeof file === "string" && file ? resolve(file) : "";
+  const listed = backups && f && listBackups().some((b) => resolve(b.path) === f);
+  if (!f || (!chosenFiles.has(f) && !listed)) throw new UserError("Please choose the file again.");
+  return f;
 }
 
 export function backupFolder() {
@@ -106,5 +121,6 @@ export function restoreFrom(file: string) {
   copyFileSync(file, target);
   openDatabase(target);
   clearSettingsCache();
+  clearLicenseCache();
   return { safetyCopy: safety };
 }

@@ -131,7 +131,7 @@ Keyboard: `Ctrl+B` new booking, `Ctrl+K` find a booking, `Esc` close a window.
 
 ## For developers
 
-Electron 37 + React 19 + Tailwind CSS 4 + SQLite (Node's built-in `node:sqlite`, so there are no
+Electron 45 + React 19 + Tailwind CSS 4 + SQLite (Node's built-in `node:sqlite`, so there are no
 native modules to rebuild).
 
 ```bash
@@ -143,7 +143,8 @@ npm run build      # checks the licence key, type-checks, builds dist/ and dist-
 npm start          # runs the built app
 ```
 
-`INNVELA_DATA_DIR=/some/folder npm start` runs with a separate data folder (useful for testing).
+`INNVELA_DATA_DIR=/some/folder npm start` runs with a separate data folder (useful for testing). This
+and `VITE_DEV_SERVER_URL` only work in a development copy; the installed software ignores them.
 
 ```
 electron/            main process — the only code that touches the database
@@ -166,6 +167,18 @@ tools/license/       the seller's tools: make the signing key, issue licence key
 The screens call the database through one IPC channel (`window.innvela.call("bookings.create", …)`,
 see `electron/api/index.ts`). The renderer runs sandboxed with context isolation and a strict
 content security policy, and can only open WhatsApp / mail / phone links outside the app.
+
+Security, in short:
+
+- The screens run sandboxed with no Node.js; the main process accepts requests only from the app's
+  own pages, checks the signed-in person's role on every request, and limits sign-in attempts
+  (5 wrong passwords lock the name for 30 seconds, then longer).
+- Files are read or written only where the person chose in a file dialog (or the listed backups).
+- The installed build has developer tools off and Electron fuses set: it cannot be started as
+  Node.js, ignores `NODE_OPTIONS` and `--inspect`, and loads only its own (integrity-checked) app
+  archive. On Windows the trial start is also kept in the registry, so deleting the data folder does
+  not restart the trial.
+- Text exported to Excel cannot run as a formula.
 
 Schema changes: add a new entry at the end of `MIGRATIONS` in `electron/db.ts` (never edit one
 that has shipped). Each installation upgrades its database when it starts.

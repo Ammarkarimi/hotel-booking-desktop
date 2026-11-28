@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import type { AppInfo, Settings } from "../../shared/types";
 import { databaseFile, scalar, tx } from "../db";
 import { activateLicense, licenseInfo, maxRooms } from "../license";
-import { autoBackupIfDue, backupFolder, backupNow, backupTo, checkBackupFile, listBackups, restoreFrom } from "../backup";
+import { assertFileAllowed, autoBackupIfDue, backupFolder, backupNow, backupTo, checkBackupFile, listBackups, restoreFrom } from "../backup";
 import { UserError, fail, log, requirePerm, requireStaff, session, str } from "./context";
 import { bookingsApi } from "./bookings";
 import { guestsApi } from "./guests";
@@ -71,17 +71,17 @@ const systemApi = {
   },
   "backup.saveAs": ({ file }: { file: string }) => {
     requirePerm("settings");
-    backupTo(file);
+    backupTo(assertFileAllowed(file));
     log("Saved a backup copy", file);
     return file;
   },
   "backup.check": ({ file }: { file: string }) => {
     requirePerm("restore");
-    return checkBackupFile(file);
+    return checkBackupFile(assertFileAllowed(file, true));
   },
   "backup.restore": ({ file }: { file: string }) => {
     const staff = requirePerm("restore");
-    const result = restoreFrom(file);
+    const result = restoreFrom(assertFileAllowed(file, true));
     session.staff = null;
     session.shiftId = null;
     log("Restored a backup", `${file} (by ${staff.name})`);
@@ -122,7 +122,7 @@ export async function handle(method: string, args: unknown): Promise<{ ok: true;
   } catch (err) {
     if (err instanceof UserError) return { ok: false, error: err.message };
     console.error(method, err);
-    return { ok: false, error: `Something went wrong: ${(err as Error).message}` };
+    return { ok: false, error: "Something went wrong. Please try again, and restart the software if it keeps happening." };
   }
 }
 

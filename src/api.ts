@@ -56,7 +56,10 @@ export type { FullBooking };
 /** Download rows as a CSV file Excel can open. */
 export async function saveCsv(name: string, header: string[], rows: Array<Array<string | number | null | undefined>>) {
   const esc = (v: string | number | null | undefined) => {
-    const s = v === null || v === undefined ? "" : String(v);
+    let s = v === null || v === undefined ? "" : String(v);
+    // A text cell starting with = + - @ would run as a formula in Excel (a guest could type one
+    // into their name), so it gets a leading apostrophe. Numbers are left as they are.
+    if (typeof v === "string" && /^[=+\-@\t\r]/.test(s) && !/^-?\d[\d.,]*$/.test(s)) s = `'${s}`;
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const text = [header, ...rows].map((r) => r.map(esc).join(",")).join("\r\n");

@@ -1,19 +1,23 @@
 // Innvela Hotel Desk: the Electron main process. Opens the database on this computer, shows the
 // window, and answers the screens' requests. Nothing is sent over the internet.
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell, nativeImage } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell, nativeImage, session, type IpcMainInvokeEvent } from "electron";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { closeDatabase, openDatabase } from "./db";
 import { handle, startupTasks } from "./api/index";
 import { setTrialFile } from "./license";
-import { backupNow, setDefaultBackupFolder } from "./backup";
+import { allowFile, assertFileAllowed, backupNow, setDefaultBackupFolder } from "./backup";
 import { getSettings } from "./api/settings";
 import { setPathikNotifier } from "./pathik";
 
 process.removeAllListeners("warning"); // node:sqlite prints an "experimental" warning
 
-const isDev = !!process.env.VITE_DEV_SERVER_URL;
-if (process.env.INNVELA_DATA_DIR) app.setPath("userData", process.env.INNVELA_DATA_DIR);
+// Development switches only work in a development copy, never in the installed software: otherwise
+// anyone could point the window at another website (with the app's database bridge) or start a
+// fresh data folder to get a new free trial.
+const isDev = !app.isPackaged && !!process.env.VITE_DEV_SERVER_URL;
+if (!app.isPackaged && process.env.INNVELA_DATA_DIR) app.setPath("userData", process.env.INNVELA_DATA_DIR);
+const devTools = !app.isPackaged;
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -29,13 +33,20 @@ function loadRoute(win: BrowserWindow, route = "") {
 
 const EXTERNAL_OK = /^(https:\/\/(wa\.me|api\.whatsapp\.com|web\.whatsapp\.com|www\.google\.com|maps\.google\.com|g\.page)\/|whatsapp:\/\/|mailto:|tel:)/i;
 
+/** Only the app's own pages may use the bridge (not Pathik or any other page). */
+function fromApp(e: IpcMainInvokeEvent) {
+  const url = e.senderFrame?.url ?? "";
+  const ok = url.startsWith("file://") ? url.split("#")[0].endsWith("/dist/index.html") : isDev && url.startsWith(process.env.VITE_DEV_SERVER_URL!);
+  if (!ok) throw new Error("Blocked request");
+}
+
 function secure(win: BrowserWindow) {
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (EXTERNAL_OK.test(url)) void shell.openExternal(url);
     return { action: "deny" };
   });
   win.webContents.on("will-navigate", (e, url) => {
-    if (!url.startsWith("file://") && !(isDev && url.startsWith(process.env.VITE_DEV_SERVER_URL!))) e.preventDefault();
+    if (!(url.startsWith("file://") && url.split("#")[0].endsWith("/dist/index.html")) && !(isDev && url.startsWith(process.env.VITE_DEV_SERVER_URL!))) e.preventDefault();
   });
 }
 
@@ -49,7 +60,7 @@ function createWindow() {
     title: "Innvela Hotel Desk",
     backgroundColor: "#f1f5f9",
     icon: iconPath(),
-    webPreferences: { preload: join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false },
+    webPreferences: { preload: join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false, devTools },
   });
   secure(mainWindow);
   mainWindow.once("ready-to-show", () => {
@@ -109,9 +120,11 @@ function buildMenu() {
 }
 
 function registerIpc() {
-  ipcMain.handle("api", (_e, method: string, args: unknown) => handle(method, args));
+  ipcMain.handle("api", (e, method: string, args: unknown) => (fromApp(e), handle(method, args)));
 
-  ipcMain.handle("print:open", (_e, route: string) => {
+  ipcMain.handle("print:open", (e, route: string) => {
+    fromApp(e);
+    if (typeof route !== "string" || !/^\/print\/[a-z]+\/[\w-]+$/.test(route)) return false;
     const win = new BrowserWindow({
       width: 900,
       height: 1000,
@@ -120,15 +133,16 @@ function registerIpc() {
       icon: iconPath(),
       backgroundColor: "#e2e8f0",
       autoHideMenuBar: true,
-      webPreferences: { preload: join(__dirname, "preload.js"), contextIsolation: true, sandbox: true },
+      webPreferences: { preload: join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: true, devTools },
     });
     secure(win);
     win.setMenuBarVisibility(false);
     void loadRoute(win, route);
     return true;
   });
-  ipcMain.handle("print:print", (e) => new Promise((resolve) => e.sender.print({ printBackground: true }, (ok, reason) => resolve({ ok, reason }))));
+  ipcMain.handle("print:print", (e) => (fromApp(e), new Promise((resolve) => e.sender.print({ printBackground: true }, (ok, reason) => resolve({ ok, reason })))));
   ipcMain.handle("print:pdf", async (e, name: string) => {
+    fromApp(e);
     const win = BrowserWindow.fromWebContents(e.sender);
     const res = await dialog.showSaveDialog(win!, { defaultPath: join(app.getPath("documents"), `${name.replace(/[\\/:*?"<>|]/g, "-")}.pdf`), filters: [{ name: "PDF", extensions: ["pdf"] }] });
     if (res.canceled || !res.filePath) return null;
@@ -138,7 +152,8 @@ function registerIpc() {
     return res.filePath;
   });
 
-  ipcMain.handle("shell:open", (_e, url: string) => {
+  ipcMain.handle("shell:open", (e, url: string) => {
+    fromApp(e);
     if (!EXTERNAL_OK.test(url)) return false;
     return shell.openExternal(url).then(
       () => true,
@@ -147,6 +162,7 @@ function registerIpc() {
   });
 
   ipcMain.handle("file:save", async (e, name: string, content: string, kind?: string) => {
+    fromApp(e);
     const win = BrowserWindow.fromWebContents(e.sender);
     const ext = kind === "lic" ? "lic" : kind === "txt" ? "txt" : "csv";
     const res = await dialog.showSaveDialog(win!, { defaultPath: join(app.getPath("documents"), name), filters: [{ name: ext.toUpperCase(), extensions: [ext] }] });
@@ -157,31 +173,44 @@ function registerIpc() {
   });
 
   ipcMain.handle("file:pick", async (e, kind: "backup" | "lic") => {
+    fromApp(e);
     const win = BrowserWindow.fromWebContents(e.sender);
     const res = await dialog.showOpenDialog(win!, {
       properties: ["openFile"],
       filters: kind === "lic" ? [{ name: "Licence", extensions: ["lic", "txt"] }] : [{ name: "Innvela backup", extensions: ["db"] }],
     });
-    return res.canceled ? null : res.filePaths[0];
+    if (res.canceled || !res.filePaths[0]) return null;
+    allowFile(res.filePaths[0]);
+    return res.filePaths[0];
   });
-  ipcMain.handle("file:readText", (_e, path: string) => {
-    if (!/\.(lic|txt)$/i.test(path)) return null;
-    return readFileSync(path, "utf8").slice(0, 10000);
+  ipcMain.handle("file:readText", (e, path: string) => {
+    fromApp(e);
+    // Only a licence file the person has just chosen in the file dialog.
+    if (typeof path !== "string" || !/\.(lic|txt)$/i.test(path)) return null;
+    try {
+      return readFileSync(assertFileAllowed(path), "utf8").slice(0, 10000);
+    } catch {
+      return null;
+    }
   });
   ipcMain.handle("folder:pick", async (e) => {
+    fromApp(e);
     const win = BrowserWindow.fromWebContents(e.sender);
     const res = await dialog.showOpenDialog(win!, { properties: ["openDirectory", "createDirectory"] });
     return res.canceled ? null : res.filePaths[0];
   });
-  ipcMain.handle("folder:show", (_e, path: string) => {
-    if (existsSync(path)) shell.showItemInFolder(path);
+  ipcMain.handle("folder:show", (e, path: string) => {
+    fromApp(e);
+    if (typeof path === "string" && existsSync(path)) shell.showItemInFolder(path);
     return true;
   });
   ipcMain.handle("backup:saveAs", async (e) => {
+    fromApp(e);
     const win = BrowserWindow.fromWebContents(e.sender);
     const d = new Date();
     const res = await dialog.showSaveDialog(win!, { defaultPath: join(app.getPath("documents"), `innvela-backup-${d.toISOString().slice(0, 10)}.db`), filters: [{ name: "Innvela backup", extensions: ["db"] }] });
     if (res.canceled || !res.filePath) return null;
+    allowFile(res.filePath);
     const r = await handle("backup.saveAs", { file: res.filePath });
     if (!r.ok) throw new Error(r.error);
     return res.filePath;
@@ -198,7 +227,15 @@ if (!app.requestSingleInstanceLock()) {
     }
   });
 
+  // No page may embed other pages, or use the camera, microphone, location and so on.
+  app.on("web-contents-created", (_e, wc) => {
+    wc.on("will-attach-webview", (ev) => ev.preventDefault());
+  });
+
   app.whenReady().then(() => {
+    for (const s of [session.defaultSession, session.fromPartition("persist:pathik")]) {
+      s.setPermissionRequestHandler((_wc, permission, cb) => cb(permission === "clipboard-sanitized-write"));
+    }
     const dataDir = join(app.getPath("userData"), "data");
     mkdirSync(dataDir, { recursive: true });
     setTrialFile(app.getPath("userData"));
